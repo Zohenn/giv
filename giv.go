@@ -19,13 +19,6 @@ func main() {
 		log.Fatal("At least one argument is required")
 	}
 
-	path := args[0]
-
-	img, err := readImageFile(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	termSize, err := getTerminalSize()
 	if err != nil {
 		log.Fatal(err)
@@ -33,6 +26,22 @@ func main() {
 
 	// Take terminal's input line into account, otherwise 2 topmost pixel rows will not be visible without scrolling up.
 	termSize.height -= 1
+
+	for index, path := range args {
+		err := printImageFile(path, termSize)
+		if err != nil {
+			fmt.Println(err)
+		} else if index < len(args)-1 {
+			fmt.Println()
+		}
+	}
+}
+
+func printImageFile(path string, termSize terminalSize) error {
+	img, err := readImageFile(path)
+	if err != nil {
+		return fmt.Errorf("error opening image file: %w", err)
+	}
 
 	bounds := img.Bounds()
 	windowSize := calculateScale(bounds.Max.Y-bounds.Min.Y, bounds.Max.X-bounds.Min.X, termSize.height*2, termSize.width)
@@ -51,6 +60,8 @@ func main() {
 		}
 		fmt.Println("\x1b[0m")
 	}
+
+	return nil
 }
 
 func calculateScale(imageHeight int, imageWidth int, viewportHeight int, viewportWidth int) int {
