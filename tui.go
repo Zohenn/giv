@@ -31,7 +31,12 @@ type model struct {
 }
 
 func newModel(path string) model {
-	img, _ := ReadImageFile(path)
+	imgString := ""
+	img, err := ReadImageFile(path)
+
+	if err != nil {
+		imgString = err.Error()
+	}
 
 	return model{
 		path: path,
@@ -39,7 +44,8 @@ func newModel(path string) model {
 		keymap: keymap{
 			quit: key.NewBinding(key.WithKeys("q"), key.WithHelp("q", "quit")),
 		},
-		img: img,
+		img:       img,
+		imgString: imgString,
 	}
 }
 
@@ -58,13 +64,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.window.width = msg.Width
 		m.window.height = msg.Height
 
-		img, err := PrintImage(m.img, ViewportSize{Width: m.window.width, Height: m.window.height - 2})
-
-		if err != nil {
-			log.Fatal(err)
+		if m.img != nil {
+			m.imgString = PrintImage(m.img, ViewportSize{Width: m.window.width, Height: m.window.height - 2})
 		}
-
-		m.imgString = img
 	}
 
 	return m, nil

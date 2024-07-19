@@ -21,12 +21,12 @@ func PrintImageFile(path string, viewportSize ViewportSize) (string, error) {
 		return "", fmt.Errorf("error opening image file: %w", err)
 	}
 
-	return PrintImage(img, viewportSize)
+	return PrintImage(img, viewportSize), nil
 }
 
-func PrintImage(img image.Image, viewportSize ViewportSize) (string, error) {
+func PrintImage(img image.Image, viewportSize ViewportSize) string {
 	if viewportSize.Height == 0 || viewportSize.Width == 0 {
-		return "", nil
+		return ""
 	}
 
 	bounds := img.Bounds()
@@ -53,7 +53,7 @@ func PrintImage(img image.Image, viewportSize ViewportSize) (string, error) {
 		}
 	}
 
-	return outputString.String(), nil
+	return outputString.String()
 }
 
 func calculateScale(imageHeight int, imageWidth int, viewportHeight int, viewportWidth int) int {
@@ -101,7 +101,9 @@ func ReadImageFile(path string) (image.Image, error) {
 		return nil, err
 	}
 
-	defer reader.Close()
+	defer func(reader *os.File) {
+		_ = reader.Close()
+	}(reader)
 
 	img, _, err := image.Decode(reader)
 	if err != nil {
