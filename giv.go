@@ -25,11 +25,11 @@ func main() {
 	termSize.Height -= 1
 
 	for _, path := range args {
-		imageStr, err := PrintImageFile(path, termSize)
+		imageRenderData, err := PrintImageFile(path, termSize)
 		if err != nil {
 			fmt.Println(err)
 		} else {
-			fmt.Println(imageStr)
+			fmt.Println(strings.TrimSpace(imageRenderData.ImageString))
 		}
 	}
 }
