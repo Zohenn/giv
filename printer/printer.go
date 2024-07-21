@@ -36,7 +36,7 @@ func PrintImage(img image.Image, viewportSize ViewportSize, useActualScale bool)
 	}
 
 	bounds := img.Bounds()
-	windowSize, actualScale := calculateScale(bounds.Max.Y-bounds.Min.Y, bounds.Max.X-bounds.Min.X, viewportSize.Height*2, viewportSize.Width)
+	windowSize, actualScale := CalculateScale(bounds.Max.Y-bounds.Min.Y, bounds.Max.X-bounds.Min.X, viewportSize.Height*2, viewportSize.Width)
 	outputString := strings.Builder{}
 
 	for vy := 0; vy < viewportSize.Height; vy++ {
@@ -105,7 +105,7 @@ func PrintImage(img image.Image, viewportSize ViewportSize, useActualScale bool)
 	}
 }
 
-func calculateScale(imageHeight int, imageWidth int, viewportHeight int, viewportWidth int) (int, float64) {
+func CalculateScale(imageHeight int, imageWidth int, viewportHeight int, viewportWidth int) (int, float64) {
 	iHeight, iWidth, vHeight, vWidth := float64(imageHeight), float64(imageWidth), float64(viewportHeight), float64(viewportWidth)
 
 	widthRatio := iWidth / vWidth

@@ -9,6 +9,7 @@ import (
 	. "giv/printer"
 	"image"
 	"log"
+	"math"
 	"os"
 )
 
@@ -23,9 +24,9 @@ type window struct {
 }
 
 type model struct {
-	path string
-	help help.Model
-	keymap
+	path      string
+	help      help.Model
+	keymap    keymap
 	window    window
 	img       image.Image
 	imgString string
@@ -49,7 +50,7 @@ func newModel(path string) model {
 		},
 		img:       img,
 		imgString: imgString,
-		zoom:      100,
+		zoom:      0,
 	}
 }
 
@@ -66,8 +67,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "=":
 			m.zoom += 25
 			printImage = true
+		case "+":
+			m.zoom += 1
+			printImage = true
 		case "-":
 			m.zoom = max(m.zoom-25, 25)
+			printImage = true
+		case "_":
+			m.zoom = max(m.zoom-1, 1)
 			printImage = true
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -80,23 +87,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.img != nil && printImage {
-		viewportWidth, viewportHeight := m.window.width, m.window.height-2
+		windowWidth, windowHeight := m.window.width, m.window.height-2
+		bounds := m.img.Bounds()
+		imageHeight := bounds.Max.Y - bounds.Min.Y
+		imageWidth := bounds.Max.X - bounds.Min.X
 
-		viewportWidth = int(float32(viewportWidth) * float32(m.zoom) / 100)
-		viewportHeight = int(float32(viewportHeight) * float32(m.zoom) / 100)
+		if m.zoom == 0 {
+			_, scale := CalculateScale(imageHeight, imageWidth, windowHeight*2, windowWidth)
+			if scale < 1 {
+				scale = 1
+			}
+			scale = 1 / scale
+			m.zoom = int(math.Ceil(scale * 100))
+		}
+
+		viewportWidth := int(float32(imageWidth) * float32(m.zoom) / 100)
+		viewportHeight := int(float32(imageHeight) * float32(m.zoom) / 100)
 
 		renderData := PrintImage(m.img, ViewportSize{Width: viewportWidth, Height: viewportHeight}, true)
 		m.imgString = renderData.ImageString
-
-		f, err := tea.LogToFile("/tmp/giv.log", "debug")
-
-		log.Printf("%dx%d %d %f\n", viewportWidth, viewportHeight, renderData.Scale, renderData.ActualScale)
-
-		if err != nil {
-			m.imgString = err.Error()
-		}
-
-		f.Close()
 	}
 
 	return m, nil
