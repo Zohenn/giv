@@ -19,6 +19,7 @@ type RenderData struct {
 	ImageString string
 	Scale       int
 	ActualScale float64
+	Viewport    ViewportSize
 }
 
 func PrintImageFile(path string, viewportSize ViewportSize) (RenderData, error) {
@@ -27,16 +28,25 @@ func PrintImageFile(path string, viewportSize ViewportSize) (RenderData, error) 
 		return RenderData{}, fmt.Errorf("error opening image file: %w", err)
 	}
 
-	return PrintImage(img, viewportSize, false), nil
+	return PrintImage(img, viewportSize, false, image.Point{}), nil
 }
 
-func PrintImage(img image.Image, viewportSize ViewportSize, useActualScale bool) RenderData {
+func PrintImage(img image.Image, viewportSize ViewportSize, useActualScale bool, offset image.Point) RenderData {
 	if viewportSize.Height == 0 || viewportSize.Width == 0 {
 		return RenderData{}
 	}
 
 	bounds := img.Bounds()
-	windowSize, actualScale := CalculateScale(bounds.Max.Y-bounds.Min.Y, bounds.Max.X-bounds.Min.X, viewportSize.Height*2, viewportSize.Width)
+	windowSize, actualScale := CalculateScale(bounds.Dy(), bounds.Dx(), viewportSize.Height*2, viewportSize.Width)
+
+	if useActualScale {
+		bounds.Min.X += int(math.Round(float64(offset.X) * actualScale))
+		bounds.Min.Y += int(math.Round(float64(offset.Y) * actualScale * 2))
+	} else {
+		bounds.Min.X += offset.X * windowSize
+		bounds.Min.Y += offset.Y * windowSize * 2
+	}
+
 	outputString := strings.Builder{}
 
 	for vy := 0; vy < viewportSize.Height; vy++ {
@@ -102,6 +112,7 @@ func PrintImage(img image.Image, viewportSize ViewportSize, useActualScale bool)
 		ImageString: outputString.String(),
 		Scale:       windowSize,
 		ActualScale: actualScale,
+		Viewport:    viewportSize,
 	}
 }
 

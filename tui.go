@@ -9,7 +9,6 @@ import (
 	. "giv/printer"
 	"image"
 	"log"
-	"math"
 	"os"
 )
 
@@ -24,13 +23,19 @@ type window struct {
 }
 
 type model struct {
-	path      string
-	help      help.Model
-	keymap    keymap
-	window    window
-	img       image.Image
-	imgString string
-	zoom      int
+	path       string
+	help       help.Model
+	keymap     keymap
+	window     window
+	img        image.Image
+	imgString  string
+	renderData RenderData
+	zoom       float32
+	offset     image.Point
+}
+
+func wholeImageRender(window *window, viewport *ViewportSize) bool {
+	return window.width >= viewport.Width && (window.height-2)*2 >= viewport.Height
 }
 
 func newModel(path string) model {
@@ -65,16 +70,28 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "=":
-			m.zoom += 25
+			m.zoom += 0.25
 			printImage = true
 		case "+":
-			m.zoom += 1
+			m.zoom += 0.01
 			printImage = true
 		case "-":
-			m.zoom = max(m.zoom-25, 25)
+			m.zoom = max(m.zoom-0.25, min(m.zoom, 0.25))
 			printImage = true
 		case "_":
-			m.zoom = max(m.zoom-1, 1)
+			m.zoom = max(m.zoom-0.01, 0.01)
+			printImage = true
+		case "left":
+			m.offset.X -= 1
+			printImage = true
+		case "right":
+			m.offset.X += 1
+			printImage = true
+		case "up":
+			m.offset.Y -= 1
+			printImage = true
+		case "down":
+			m.offset.Y += 1
 			printImage = true
 		case "ctrl+c", "q":
 			return m, tea.Quit
@@ -89,8 +106,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if m.img != nil && printImage {
 		windowWidth, windowHeight := m.window.width, m.window.height-2
 		bounds := m.img.Bounds()
-		imageHeight := bounds.Max.Y - bounds.Min.Y
-		imageWidth := bounds.Max.X - bounds.Min.X
+		imageHeight, imageWidth := bounds.Dy(), bounds.Dx()
 
 		if m.zoom == 0 {
 			_, scale := CalculateScale(imageHeight, imageWidth, windowHeight*2, windowWidth)
@@ -98,14 +114,21 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				scale = 1
 			}
 			scale = 1 / scale
-			m.zoom = int(math.Ceil(scale * 100))
+			m.zoom = float32(scale)
 		}
 
-		viewportWidth := int(float32(imageWidth) * float32(m.zoom) / 100)
-		viewportHeight := int(float32(imageHeight) * float32(m.zoom) / 100)
+		viewportWidth := int(float32(imageWidth) * m.zoom)
+		viewportHeight := int(float32(imageHeight) * m.zoom)
 
-		renderData := PrintImage(m.img, ViewportSize{Width: viewportWidth, Height: viewportHeight}, true)
+		viewport := ViewportSize{Width: viewportWidth, Height: viewportHeight}
+
+		if wholeImageRender(&m.window, &viewport) {
+			m.offset = image.Point{}
+		}
+
+		renderData := PrintImage(m.img, viewport, true, m.offset)
 		m.imgString = renderData.ImageString
+		m.renderData = renderData
 	}
 
 	return m, nil
@@ -118,7 +141,12 @@ func (m model) View() string {
 	})
 
 	topBarStyle := lipgloss.NewStyle().Background(lipgloss.Color("#fff")).Foreground(lipgloss.Color("#000"))
-	zoomText := fmt.Sprintf(" Zoom: %d%%", m.zoom)
+	zoomText := fmt.Sprintf(" Zoom: %d%%", int(m.zoom*100))
+
+	imagePosition := lipgloss.Center
+	if !wholeImageRender(&m.window, &m.renderData.Viewport) {
+		imagePosition = lipgloss.Top
+	}
 
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
@@ -127,7 +155,7 @@ func (m model) View() string {
 			lipgloss.PlaceHorizontal(m.window.width-len(zoomText), lipgloss.Left, topBarStyle.Render(m.path), lipgloss.WithWhitespaceBackground(lipgloss.Color("#fff"))),
 			topBarStyle.Render(zoomText),
 		),
-		lipgloss.Place(m.window.width, m.window.height-2, lipgloss.Center, lipgloss.Center, lipgloss.NewStyle().MaxWidth(m.window.width).MaxHeight(m.window.height-2).Render(m.imgString)),
+		lipgloss.Place(m.window.width, m.window.height-2, imagePosition, imagePosition, lipgloss.NewStyle().MaxWidth(m.window.width).MaxHeight(m.window.height-2).Render(m.imgString)),
 		lipgloss.PlaceHorizontal(m.window.width, lipgloss.Center, lipgloss.NewStyle().Render(h)),
 	)
 }
